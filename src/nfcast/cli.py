@@ -25,7 +25,12 @@ def main(argv: list[str] | None = None) -> int:
             print(df.groupby("nf")[["traffic_mbps", "cpu_cores", "cpu_util_pod", "mem_gib", "energy_w", "replicas"]].mean().round(2))
         elif c == "bench":
             from .bench import run_benchmark
-            run_benchmark(cfg, a.models).to_csv(out("bench_windows.csv"), index=False)
+            new = run_benchmark(cfg, a.models)
+            if a.models and os.path.exists(out("bench_windows.csv")):          # partial run: replace just those models
+                import pandas as pd
+                old = pd.read_csv(out("bench_windows.csv"))
+                new = pd.concat([old[~old.model.isin(a.models)], new], ignore_index=True)
+            new.to_csv(out("bench_windows.csv"), index=False)
         elif c == "finetune":
             from .finetune import run_finetune
             run_finetune(cfg).to_csv(out("finetune_windows.csv"), index=False)

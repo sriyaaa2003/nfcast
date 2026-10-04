@@ -85,19 +85,20 @@ def run_finetune(cfg: Config) -> pd.DataFrame:
     }
     out = []
 
-    def evaluate(model, label, exp, method, frac, keys, n_params):
+    def evaluate(model, label, exp, method, frac, keys, n_params, seed):
         d = score_model(TTM(cfg, label=label, model=model), series, cfg, keys, scales)
-        d["experiment"], d["method"], d["fraction"], d["trainable_params"] = exp, method, frac, n_params
+        d["experiment"], d["method"], d["fraction"], d["trainable_params"], d["seed"] = exp, method, frac, n_params, seed
         out.append(d)
 
     for exp, (src, tgt) in pools.items():
-        evaluate(base, "ttm_zero_shot", exp, "zero_shot", 0.0, tgt, 0)
-        for frac in ft.fractions:
-            n_win = max(8, int(round(frac * ft.max_windows)))
-            X, Y = make_windows(series, src, train_end, n_win, ctx, pred, cfg.seed)
-            for method in ft.methods:
-                t0 = time.time()
-                model, n_params = adapt(base, X, Y, cfg, method, cfg.seed)
-                evaluate(model, f"ttm_{method}", exp, method, frac, tgt, n_params)
-                LOG(f"{exp} {method} frac={frac} ({n_win} windows, {n_params} trainable params): {time.time() - t0:.0f}s")
+        evaluate(base, "ttm_zero_shot", exp, "zero_shot", 0.0, tgt, 0, 0)
+        for seed in range(cfg.seed, cfg.seed + ft.seeds):
+            for frac in ft.fractions:
+                n_win = max(8, int(round(frac * ft.max_windows)))
+                X, Y = make_windows(series, src, train_end, n_win, ctx, pred, seed)
+                for method in ft.methods:
+                    t0 = time.time()
+                    model, n_params = adapt(base, X, Y, cfg, method, seed)
+                    evaluate(model, f"ttm_{method}", exp, method, frac, tgt, n_params, seed)
+                    LOG(f"{exp} {method} frac={frac} seed={seed} ({n_win} windows, {n_params} trainable): {time.time() - t0:.0f}s")
     return pd.concat(out, ignore_index=True)

@@ -80,3 +80,31 @@ class TTM(Forecaster):
             x = torch.tensor(histories[i:i + self.batch, -self.history_length:], dtype=torch.float32).unsqueeze(-1)
             out.append(self.model(past_values=x).prediction_outputs[:, :horizon, 0].numpy())
         return Forecast(np.concatenate(out))
+
+
+class TimesFM(Forecaster):
+    """Google TimesFM 2.0 (500M parameters, decoder-only, patch-based) through the transformers implementation.
+    It returns the mean and nine quantiles (0.1 to 0.9), so it is scored like Chronos."""
+    native_quantiles = True
+
+    def __init__(self, cfg: Config):
+        from transformers import TimesFmModelForPrediction
+        self.name = "timesfm"
+        self.history_length = cfg.eval.context_length
+        self.levels = list(cfg.eval.quantile_levels)
+        self.batch = cfg.models.foundation.batch_size
+        self.model = TimesFmModelForPrediction.from_pretrained(cfg.models.foundation.timesfm, torch_dtype=torch.float32).eval()
+        self.max_horizon = int(self.model.config.horizon_length)
+
+    @torch.no_grad()
+    def predict(self, histories: np.ndarray, horizon: int, meta: Meta | None = None) -> Forecast:
+        if horizon > self.max_horizon:
+            raise ValueError(f"TimesFM predicts up to {self.max_horizon} steps per pass")
+        pts, qs = [], []
+        for i in range(0, len(histories), self.batch):
+            ctx = [torch.tensor(h, dtype=torch.float32) for h in histories[i:i + self.batch]]
+            out = self.model(past_values=ctx, freq=[0] * len(ctx), return_dict=True)
+            pts.append(out.mean_predictions[:, :horizon].numpy())
+            qs.append(out.full_predictions[:, :horizon, 1:].numpy())          # column 0 is the mean, then 0.1 .. 0.9
+        q = np.concatenate(qs)
+        return Forecast(np.concatenate(pts), {lv: q[:, :, j] for j, lv in enumerate(self.levels)})

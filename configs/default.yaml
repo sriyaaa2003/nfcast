@@ -65,7 +65,7 @@ eval:
   seasonal_period: 1440
 
 models:
-  enabled: [naive, seasonal_naive, seasonal_average, ets, gbm, chronos_tiny, chronos_small, ttm]
+  enabled: [naive, seasonal_naive, seasonal_average, ets, gbm, chronos_tiny, chronos_small, ttm, timesfm]
   foundation:
     chronos_tiny: amazon/chronos-bolt-tiny
     chronos_small: amazon/chronos-bolt-small
@@ -91,6 +91,7 @@ finetune:
   lora_dropout: 0.05
   methods: [full, lora]
   max_windows: 4000
+  seeds: 3
   source_nf: upf
   source_target: cpu_cores
 
@@ -99,7 +100,7 @@ orchestrate:
   lookahead_minutes: 60
   headrooms: [0.0, 0.1, 0.2, 0.3]
   scale_down_delay_minutes: 10
-  policies: [reactive, naive, seasonal_naive, gbm, ttm, chronos_small, oracle]
+  policies: [reactive, naive, seasonal_naive, gbm, ttm, chronos_small, timesfm, oracle]
   nf: upf
   target: cpu_cores
   series: 6

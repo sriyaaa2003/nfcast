@@ -21,7 +21,7 @@ def build_model(name: str, cfg: Config) -> Forecaster:
         return ETS(cfg)
     if name == "gbm":
         return GBM(cfg)
-    from .foundation import TTM, Chronos            # imported lazily: heavy, and needs the model weights
+    from .foundation import TTM, Chronos, TimesFM            # imported lazily: heavy, and needs the model weights
     f = cfg.models.foundation
     if name == "chronos_tiny":
         return Chronos(f.chronos_tiny, "chronos_tiny", cfg)
@@ -29,6 +29,8 @@ def build_model(name: str, cfg: Config) -> Forecaster:
         return Chronos(f.chronos_small, "chronos_small", cfg)
     if name == "ttm":
         return TTM(cfg)
+    if name == "timesfm":
+        return TimesFM(cfg)
     raise ValueError(f"unknown model {name!r}")
 
 

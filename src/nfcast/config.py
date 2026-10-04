@@ -139,6 +139,7 @@ class Finetune:
     lora_dropout: float
     methods: list[str]             # full | lora
     max_windows: int               # cap on training windows per run, for CPU time
+    seeds: int                     # independent repeats of every adaptation run (data sampling and training)
     source_nf: str         # cross-NF experiment: adapt on this NF type only
     source_target: str     # cross-target experiment: adapt on this target only
 
@@ -240,7 +241,7 @@ def validate(cfg: Config) -> None:
     o = cfg.orchestrate
     if o.nf not in names or o.target not in TARGETS:
         raise ConfigError("orchestrate.nf / target must refer to a configured NF and a known target")
-    if not set(o.policies) <= {"reactive", "naive", "seasonal_naive", "seasonal_average", "gbm", "ttm", "chronos_tiny", "chronos_small", "oracle"}:
+    if not set(o.policies) <= {"reactive", "naive", "seasonal_naive", "seasonal_average", "gbm", "ttm", "chronos_tiny", "chronos_small", "timesfm", "oracle"}:
         raise ConfigError("orchestrate.policies: unknown policy")
 
 

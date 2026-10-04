@@ -13,7 +13,7 @@ from . import orchestrate
 from .config import Config
 from .metrics import cluster_bootstrap
 
-ORDER = ["naive", "seasonal_naive", "seasonal_average", "ets", "gbm", "chronos_tiny", "chronos_small", "ttm"]
+ORDER = ["naive", "seasonal_naive", "seasonal_average", "ets", "gbm", "chronos_tiny", "chronos_small", "ttm", "timesfm"]
 
 
 def _series_id(d: pd.DataFrame) -> np.ndarray:
@@ -59,8 +59,9 @@ def plot_bench(bench: pd.DataFrame, cfg: Config, path: str) -> None:
     d = bench[bench.horizon == h].groupby(["model", "nf"]).mase.mean().unstack()
     d = d.loc[[m for m in ORDER if m in d.index]]
     ax = d.plot.bar(figsize=(9, 4), width=0.8)
-    ax.set_ylabel(f"MASE, {h}-min horizon (lower is better)")
+    ax.set_ylabel(f"MASE, {h}-min (lower is better)", fontsize=9)
     ax.set_xlabel("")
+    ax.legend(title="nf", loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4)
     plt.xticks(rotation=30, ha="right")
     plt.tight_layout()
     plt.savefig(path, dpi=140)
@@ -77,8 +78,9 @@ def plot_finetune(ft: pd.DataFrame, cfg: Config, path: str) -> None:
         g = d[d.experiment == e]
         ax.axhline(g[g.method == "zero_shot"].mase.mean(), color="grey", ls="--", label="zero-shot")
         for m, gg in g[g.method != "zero_shot"].groupby("method"):
-            c = gg.groupby("fraction").mase.mean()
-            ax.plot(c.index, c.values, marker="o", label=m)
+            per = gg.groupby(["fraction", "seed"]).mase.mean().reset_index()
+            c = per.groupby("fraction").mase.agg(["mean", "std"])
+            ax.errorbar(c.index, c["mean"], yerr=c["std"].fillna(0), marker="o", capsize=3, label=m)
         ax.set_xscale("log")
         ax.set_title(e)
         ax.set_xlabel("share of training budget")
@@ -124,8 +126,11 @@ def build(cfg: Config) -> str:
         ft = pd.read_csv(ft_path)
         plot_finetune(ft, cfg, os.path.join(rd, "finetune_curves.png"))
         h = max(cfg.eval.horizons)
-        g = ft[ft.horizon == h].groupby(["experiment", "method", "fraction"]).mase.mean().reset_index()
-        parts.append(f"### Adaptation, {h}-minute MASE\n\n" + md(g))
+        per = ft[ft.horizon == h].groupby(["experiment", "method", "fraction", "seed"]).mase.mean().reset_index()
+        per.to_csv(os.path.join(rd, "finetune_summary.csv"), index=False)
+        g = per.groupby(["experiment", "method", "fraction"]).mase.agg(["mean", "std"]).reset_index()
+        g["mase (mean, sd over seeds)"] = [f"{m:.3f} ({0 if np.isnan(sd) else sd:.3f})" for m, sd in zip(g["mean"], g["std"])]
+        parts.append(f"### Adaptation, {h}-minute MASE\n\n" + md(g[["experiment", "method", "fraction", "mase (mean, sd over seeds)"]]))
     op = os.path.join(rd, "orchestration.csv")
     if os.path.exists(op):
         s = orchestrate.summarise(pd.read_csv(op))

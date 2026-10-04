@@ -7,3 +7,7 @@ models_cache/
 results/*.parquet
 results/**/*.parquet
 *.pt
+results/finetune_windows.csv
+run.log
+.tmp/
+run2.log
