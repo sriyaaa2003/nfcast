@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nfcast"
+version = "0.1.0"
+description = "Do time-series foundation models forecast cloud-native 5G network-function telemetry better than classical baselines, and do the forecasts save energy?"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy", "pandas", "pyarrow", "scipy", "scikit-learn", "statsmodels", "pyyaml", "matplotlib",
+  "torch", "transformers>=4.57,<5", "peft", "chronos-forecasting", "granite-tsfm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+nfcast = "nfcast.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["slow: loads real foundation models (needs network on first run)"]
