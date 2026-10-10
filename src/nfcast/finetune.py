@@ -1,5 +1,5 @@
-"""Adapting TTM to NF telemetry: full fine-tuning and LoRA, at several data budgets, and how far the adaptation transfers
-across NF types, targets and unseen instances (sites)."""
+"""Adapting TTM to cellular traffic: full fine-tuning and LoRA, at several data budgets, and how far the adaptation transfers
+across cell types, targets and unseen cells."""
 from __future__ import annotations
 
 import copy
@@ -13,11 +13,11 @@ from . import metrics
 from .bench import LOG, score_model
 from .config import Config
 from .models.foundation import TTM, load_ttm_model
-from .sim import series_dict, simulate, split_bounds
+from .data import load_panel, series_dict, split_bounds
 
 
 def make_windows(series: dict, keys: list, end: int, n: int, ctx: int, pred: int, seed: int):
-    """n random training windows from the first `end` minutes of the given series. Past and future lie inside the training period."""
+    """n random training windows from the first `end` steps of the given series. Past and future lie inside the training period."""
     rng = np.random.default_rng(seed)
     X, Y = [], []
     for _ in range(n):
@@ -63,11 +63,10 @@ def adapt(base, X, Y, cfg: Config, method: str, seed: int):
 def run_finetune(cfg: Config) -> pd.DataFrame:
     """Experiments (all scored on the test period, intervals conformalised on the calib period):
       pooled    adapt on every NF and target, test on the benchmark instances
-      cross_nf  adapt on UPF only, test on the other NF types
-      cross_tgt adapt on CPU only, test on the other targets
-      new_sites adapt on benchmark instances, test on instances never seen in training"""
-    df = simulate(cfg)
-    series = series_dict(df, cfg)
+      cross_type adapt on one cell type only, test on the other types
+      cross_tgt adapt on internet only, test on the other targets
+      new_cells adapt on benchmark cells, test on cells never seen in training"""
+    series = series_dict(load_panel(cfg), cfg)
     train_end = split_bounds(cfg)["train"][1]
     scales = {k: metrics.series_scale(series[k][:train_end], cfg.eval.seasonal_period) for k in series}
     n_inst = cfg.eval.series_per_cell
@@ -79,9 +78,9 @@ def run_finetune(cfg: Config) -> pd.DataFrame:
 
     pools = {
         "pooled": (bench_keys, bench_keys),
-        "cross_nf": ([k for k in bench_keys if k[0] == ft.source_nf], [k for k in bench_keys if k[0] != ft.source_nf]),
+        "cross_type": ([k for k in bench_keys if k[0] == ft.source_type], [k for k in bench_keys if k[0] != ft.source_type]),
         "cross_tgt": ([k for k in bench_keys if k[2] == ft.source_target], [k for k in bench_keys if k[2] != ft.source_target]),
-        "new_sites": (bench_keys, new_keys),
+        "new_cells": (bench_keys, new_keys),
     }
     out = []
 

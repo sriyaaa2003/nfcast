@@ -1,0 +1,30 @@
+{
+  "types": {
+    "type3": {
+      "cells_in_type": 663,
+      "weekday_peak_hour": 21.2,
+      "weekend_to_weekday": 1.01,
+      "mean_internet": 218.3
+    },
+    "type1": {
+      "cells_in_type": 221,
+      "weekday_peak_hour": 13.5,
+      "weekend_to_weekday": 1.26,
+      "mean_internet": 333.4
+    },
+    "type0": {
+      "cells_in_type": 84,
+      "weekday_peak_hour": 13.0,
+      "weekend_to_weekday": 1.35,
+      "mean_internet": 393.7
+    },
+    "type2": {
+      "cells_in_type": 532,
+      "weekday_peak_hour": 14.0,
+      "weekend_to_weekday": 1.12,
+      "mean_internet": 280.2
+    }
+  },
+  "pool": 1500,
+  "kept": 1500
+}

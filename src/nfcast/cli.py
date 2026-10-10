@@ -1,4 +1,4 @@
-"""Command line: nfcast sim | bench | finetune | orchestrate | report | all."""
+"""Command line: nfcast download | panel | bench | finetune | orchestrate | report | all."""
 from __future__ import annotations
 
 import argparse
@@ -9,20 +9,27 @@ from .config import load_config
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="nfcast", description="Foundation models for 5G network-function telemetry forecasting.")
-    ap.add_argument("command", choices=["sim", "bench", "finetune", "orchestrate", "report", "all"])
+    ap = argparse.ArgumentParser(prog="nfcast", description="Time-series foundation models on real cellular traffic.")
+    ap.add_argument("command", choices=["download", "panel", "bench", "finetune", "orchestrate", "report", "all"])
     ap.add_argument("--config", default=None, help="YAML config (default: configs/default.yaml or $NFCAST_CONFIG)")
     ap.add_argument("--models", nargs="*", help="bench only: restrict to these models")
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
     os.makedirs(cfg.paths.results_dir, exist_ok=True)
     out = lambda n: os.path.join(cfg.paths.results_dir, n)
-    cmds = ["bench", "finetune", "orchestrate", "report"] if a.command == "all" else [a.command]
+    cmds = ["download", "panel", "bench", "finetune", "orchestrate", "report"] if a.command == "all" else [a.command]
     for c in cmds:
-        if c == "sim":
-            from .sim import simulate
-            df = simulate(cfg)
-            print(df.groupby("nf")[["traffic_mbps", "cpu_cores", "cpu_util_pod", "mem_gib", "energy_w", "replicas"]].mean().round(2))
+        if c == "download":
+            from .data import download
+            download(cfg)
+        elif c == "panel":
+            import json
+            from .data import build_panel
+            df, info = build_panel(cfg)
+            df.to_parquet(os.path.join(cfg.paths.data_dir, "panel.parquet"))
+            with open(out("panel_summary.json"), "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=2)
+            print(json.dumps(info, indent=2))
         elif c == "bench":
             from .bench import run_benchmark
             new = run_benchmark(cfg, a.models)

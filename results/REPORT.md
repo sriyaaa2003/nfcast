@@ -1,99 +1,98 @@
-### Benchmark, 15-minute horizon
-
-| model | mase | interval_score | coverage |
-|---|---|---|---|
-| naive | 0.752 (0.675 to 0.834) | 3.47 | 0.792 |
-| seasonal_naive | 0.982 (0.951 to 1.012) | 4.51 | 0.814 |
-| seasonal_average | 0.853 (0.816 to 0.887) | 3.92 | 0.789 |
-| ets | 0.640 (0.583 to 0.695) | 2.99 | 0.804 |
-| gbm | 0.597 (0.542 to 0.657) | 2.74 | 0.790 |
-| chronos_tiny | 0.599 (0.541 to 0.660) | 2.71 | 0.793 |
-| chronos_small | 0.606 (0.546 to 0.667) | 2.75 | 0.791 |
-| ttm | 0.613 (0.554 to 0.672) | 2.86 | 0.799 |
-| timesfm | 0.568 (0.516 to 0.617) | 2.59 | 0.794 |
-
 ### Benchmark, 60-minute horizon
 
 | model | mase | interval_score | coverage |
 |---|---|---|---|
-| naive | 0.828 (0.752 to 0.904) | 3.88 | 0.798 |
-| seasonal_naive | 0.974 (0.951 to 0.997) | 4.43 | 0.803 |
-| seasonal_average | 0.840 (0.809 to 0.866) | 3.84 | 0.783 |
-| ets | 0.683 (0.626 to 0.737) | 3.28 | 0.806 |
-| gbm | 0.651 (0.594 to 0.709) | 3.01 | 0.793 |
-| chronos_tiny | 0.688 (0.630 to 0.741) | 3.17 | 0.801 |
-| chronos_small | 0.695 (0.635 to 0.749) | 3.22 | 0.800 |
-| ttm | 0.707 (0.647 to 0.762) | 3.30 | 0.802 |
-| timesfm | 0.649 (0.599 to 0.693) | 3.00 | 0.805 |
+| naive | 0.650 (0.592 to 0.705) | 3.77 | 0.800 |
+| seasonal_naive | 0.915 (0.860 to 0.970) | 5.95 | 0.857 |
+| seasonal_average | 0.955 (0.884 to 1.026) | 6.00 | 0.868 |
+| ets | 0.939 (0.878 to 0.997) | 5.80 | 0.789 |
+| gbm | 0.581 (0.537 to 0.626) | 3.31 | 0.804 |
+| chronos_tiny | 0.541 (0.494 to 0.588) | 2.52 | 0.794 |
+| chronos_small | 0.518 (0.471 to 0.565) | 2.43 | 0.804 |
+| ttm | 0.532 (0.484 to 0.579) | 2.96 | 0.818 |
+| timesfm | 0.543 (0.495 to 0.590) | 2.50 | 0.828 |
+
+### Benchmark, 360-minute horizon
+
+| model | mase | interval_score | coverage |
+|---|---|---|---|
+| naive | 1.547 (1.428 to 1.664) | 7.98 | 0.784 |
+| seasonal_naive | 0.915 (0.857 to 0.978) | 5.87 | 0.859 |
+| seasonal_average | 0.954 (0.883 to 1.030) | 5.94 | 0.867 |
+| ets | 1.244 (1.155 to 1.335) | 7.12 | 0.820 |
+| gbm | 0.965 (0.900 to 1.031) | 5.03 | 0.809 |
+| chronos_tiny | 0.901 (0.835 to 0.975) | 4.44 | 0.820 |
+| chronos_small | 0.769 (0.721 to 0.817) | 3.80 | 0.837 |
+| ttm | 0.684 (0.641 to 0.732) | 3.83 | 0.833 |
+| timesfm | 0.856 (0.803 to 0.910) | 4.05 | 0.837 |
 
 ### Native vs conformalised coverage (nominal 0.80)
 
 | model | horizon | raw_coverage | coverage |
 |---|---|---|---|
-| chronos_small | 15 | 0.785 | 0.791 |
-| chronos_small | 60 | 0.796 | 0.800 |
-| chronos_tiny | 15 | 0.785 | 0.793 |
-| chronos_tiny | 60 | 0.793 | 0.801 |
-| timesfm | 15 | 0.782 | 0.794 |
-| timesfm | 60 | 0.786 | 0.805 |
+| chronos_small | 6 | 0.828 | 0.804 |
+| chronos_small | 36 | 0.829 | 0.837 |
+| chronos_tiny | 6 | 0.808 | 0.794 |
+| chronos_tiny | 36 | 0.790 | 0.820 |
+| timesfm | 6 | 0.813 | 0.828 |
+| timesfm | 36 | 0.782 | 0.837 |
 
-### Adaptation, 60-minute MASE
+### Adaptation, 360-minute MASE
 
 | experiment | method | fraction | mase (mean, sd over seeds) |
 |---|---|---|---|
-| cross_nf | full | 0.010 | 0.739 (0.010) |
-| cross_nf | full | 0.050 | 0.716 (0.008) |
-| cross_nf | full | 0.200 | 0.704 (0.002) |
-| cross_nf | full | 1.000 | 0.702 (0.007) |
-| cross_nf | lora | 0.010 | 0.728 (0.000) |
-| cross_nf | lora | 0.050 | 0.724 (0.001) |
-| cross_nf | lora | 0.200 | 0.714 (0.001) |
-| cross_nf | lora | 1.000 | 0.693 (0.001) |
-| cross_nf | zero_shot | 0.000 | 0.729 (0.000) |
-| cross_tgt | full | 0.010 | 0.669 (0.017) |
-| cross_tgt | full | 0.050 | 0.670 (0.011) |
-| cross_tgt | full | 0.200 | 0.649 (0.001) |
-| cross_tgt | full | 1.000 | 0.629 (0.003) |
-| cross_tgt | lora | 0.010 | 0.675 (0.000) |
-| cross_tgt | lora | 0.050 | 0.672 (0.000) |
-| cross_tgt | lora | 0.200 | 0.661 (0.001) |
-| cross_tgt | lora | 1.000 | 0.646 (0.001) |
-| cross_tgt | zero_shot | 0.000 | 0.677 (0.000) |
-| new_sites | full | 0.010 | 0.705 (0.016) |
-| new_sites | full | 0.050 | 0.690 (0.010) |
-| new_sites | full | 0.200 | 0.687 (0.002) |
-| new_sites | full | 1.000 | 0.674 (0.009) |
-| new_sites | lora | 0.010 | 0.709 (0.000) |
-| new_sites | lora | 0.050 | 0.706 (0.000) |
-| new_sites | lora | 0.200 | 0.695 (0.001) |
-| new_sites | lora | 1.000 | 0.678 (0.001) |
-| new_sites | zero_shot | 0.000 | 0.710 (0.000) |
-| pooled | full | 0.010 | 0.705 (0.019) |
-| pooled | full | 0.050 | 0.686 (0.009) |
-| pooled | full | 0.200 | 0.682 (0.001) |
-| pooled | full | 1.000 | 0.673 (0.006) |
-| pooled | lora | 0.010 | 0.705 (0.000) |
-| pooled | lora | 0.050 | 0.702 (0.000) |
-| pooled | lora | 0.200 | 0.693 (0.001) |
-| pooled | lora | 1.000 | 0.671 (0.002) |
-| pooled | zero_shot | 0.000 | 0.707 (0.000) |
+| cross_tgt | full | 0.010 | 0.777 (0.023) |
+| cross_tgt | full | 0.050 | 0.751 (0.012) |
+| cross_tgt | full | 0.200 | 0.742 (0.014) |
+| cross_tgt | full | 1.000 | 0.694 (0.012) |
+| cross_tgt | lora | 0.010 | 0.724 (0.001) |
+| cross_tgt | lora | 0.050 | 0.722 (0.002) |
+| cross_tgt | lora | 0.200 | 0.715 (0.001) |
+| cross_tgt | lora | 1.000 | 0.702 (0.009) |
+| cross_tgt | zero_shot | 0.000 | 0.725 (0.000) |
+| cross_type | full | 0.010 | 0.714 (0.013) |
+| cross_type | full | 0.050 | 0.694 (0.021) |
+| cross_type | full | 0.200 | 0.730 (0.033) |
+| cross_type | full | 1.000 | 0.699 (0.009) |
+| cross_type | lora | 0.010 | 0.677 (0.000) |
+| cross_type | lora | 0.050 | 0.676 (0.000) |
+| cross_type | lora | 0.200 | 0.670 (0.002) |
+| cross_type | lora | 1.000 | 0.670 (0.007) |
+| cross_type | zero_shot | 0.000 | 0.678 (0.000) |
+| new_cells | full | 0.010 | 0.654 (0.018) |
+| new_cells | full | 0.050 | 0.638 (0.010) |
+| new_cells | full | 0.200 | 0.633 (0.019) |
+| new_cells | full | 1.000 | 0.621 (0.012) |
+| new_cells | lora | 0.010 | 0.619 (0.001) |
+| new_cells | lora | 0.050 | 0.617 (0.000) |
+| new_cells | lora | 0.200 | 0.614 (0.001) |
+| new_cells | lora | 1.000 | 0.607 (0.009) |
+| new_cells | zero_shot | 0.000 | 0.619 (0.000) |
+| pooled | full | 0.010 | 0.729 (0.023) |
+| pooled | full | 0.050 | 0.711 (0.011) |
+| pooled | full | 0.200 | 0.702 (0.024) |
+| pooled | full | 1.000 | 0.683 (0.012) |
+| pooled | lora | 0.010 | 0.684 (0.001) |
+| pooled | lora | 0.050 | 0.682 (0.000) |
+| pooled | lora | 0.200 | 0.678 (0.001) |
+| pooled | lora | 1.000 | 0.667 (0.009) |
+| pooled | zero_shot | 0.000 | 0.684 (0.000) |
 
-### Energy at no more than 0 violation minutes (all instances)
+### Capacity at no more than 200 violation steps (all cells)
 
-| family | headroom | energy_kwh | violation_min | energy_saving_pct |
+| family | headroom | capacity_cell_days | violation_steps | capacity_saving_pct |
 |---|---|---|---|---|
-| oracle | 0.00 | 232.56 | 0 | 6.04 |
-| reactive_tuned | nan | 238.18 | 0 | 3.77 |
+| oracle | 0.00 | 107.81 | 0 | 25.89 |
+| reactive_tuned | nan | 145.46 | 155 | 0.00 |
 
-### Energy at no more than 20 violation minutes (all instances)
+### Capacity at no more than 1000 violation steps (all cells)
 
-| family | headroom | energy_kwh | violation_min | energy_saving_pct |
+| family | headroom | capacity_cell_days | violation_steps | capacity_saving_pct |
 |---|---|---|---|---|
-| reactive_tuned | nan | 230.76 | 18 | 6.77 |
-| ttm | 0.20 | 232.51 | 12 | 6.06 |
-| oracle | 0.00 | 232.56 | 0 | 6.04 |
-| timesfm | 0.20 | 232.63 | 9 | 6.01 |
-| gbm | 0.20 | 233.02 | 6 | 5.85 |
-| chronos_small | 0.20 | 233.76 | 7 | 5.55 |
-| naive | 0.30 | 235.71 | 9 | 4.76 |
-| seasonal_naive | 0.10 | 239.23 | 17 | 3.34 |
+| oracle | 0.00 | 107.81 | 0 | 25.89 |
+| ttm | 0.20 | 116.50 | 820 | 19.91 |
+| timesfm | 0.20 | 118.27 | 606 | 18.70 |
+| gbm | 0.20 | 119.75 | 802 | 17.67 |
+| chronos_small | 0.30 | 123.62 | 736 | 15.01 |
+| reactive_tuned | nan | 124.68 | 434 | 14.29 |
+| seasonal_naive | 0.20 | 136.73 | 781 | 6.00 |

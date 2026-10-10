@@ -10,7 +10,7 @@ from . import conformal, metrics
 from .config import Config, TARGETS
 from .models import Meta, build_model
 from .models.base import Forecaster
-from .sim import series_dict, simulate, split_bounds
+from .data import load_panel, series_dict, split_bounds
 from .windows import future, gather, origins_for
 
 LOG = lambda m: print(f"[{time.strftime('%H:%M:%S')}] {m}", flush=True)
@@ -87,8 +87,7 @@ def score_model(model: Forecaster, series: dict, cfg: Config, keys: list, scales
 
 
 def run_benchmark(cfg: Config, model_names: list[str] | None = None) -> pd.DataFrame:
-    df = simulate(cfg)
-    series = series_dict(df, cfg)
+    series = series_dict(load_panel(cfg), cfg)
     keys = bench_keys(cfg, series)
     train_end = split_bounds(cfg)["train"][1]
     scales = {k: metrics.series_scale(series[k][:train_end], cfg.eval.seasonal_period) for k in series}
@@ -99,5 +98,5 @@ def run_benchmark(cfg: Config, model_names: list[str] | None = None) -> pd.DataF
         if name == "gbm":
             model.fit({k: series[k][:train_end] for k in keys})
         out.append(score_model(model, series, cfg, keys, scales))
-        LOG(f"{name}: {time.time() - t0:.0f}s, test MASE {out[-1].query('horizon == 60').mase.mean():.3f}")
+        LOG(f"{name}: {time.time() - t0:.0f}s, test MASE {out[-1].query('horizon == @cfg.eval.horizons[-1]').mase.mean():.3f}")
     return pd.concat(out, ignore_index=True)

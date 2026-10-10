@@ -71,3 +71,15 @@ def test_cqr_widens_an_overconfident_band():
     narrow_lo, narrow_hi = np.full_like(y, -0.2), np.full_like(y, 0.2)
     lo, hi = conformal.interval_from_quantiles(narrow_lo, narrow_hi, y, narrow_lo, narrow_hi, 1.0, 0.2)
     assert (hi - lo).mean() > 1.5
+
+
+def test_ets_recovers_a_noiseless_daily_cycle(cfg):
+    from nfcast.models import build_model
+
+    day = cfg.eval.seasonal_period
+    t = np.arange(4 * day)
+    y = (100 + 30 * np.sin(2 * np.pi * t / day)).astype(np.float64)
+    m = build_model("ets", cfg)
+    f = m.predict(y[None, -m.history_length:], 12).point[0]
+    truth = 100 + 30 * np.sin(2 * np.pi * np.arange(4 * day, 4 * day + 12) / day)
+    assert np.abs(f - truth).max() < 2.0

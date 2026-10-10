@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from nfcast.config import load_config
@@ -9,12 +10,11 @@ def cfg():
 
 
 @pytest.fixture(scope="session")
-def sim_df(cfg):
-    from nfcast.sim import simulate
-    return simulate(cfg)
-
-
-@pytest.fixture(scope="session")
-def series(sim_df, cfg):
-    from nfcast.sim import series_dict
-    return series_dict(sim_df, cfg)
+def series(cfg):
+    """A small hand-built daily-cycle series per (cell type, target): a unit-test input, not study data."""
+    rng = np.random.default_rng(0)
+    n = cfg.data.days * cfg.eval.seasonal_period
+    t = np.arange(n)
+    day = cfg.eval.seasonal_period
+    base = 50 + 20 * np.sin(2 * np.pi * t / day) + rng.normal(0, 1.5, n)
+    return {("type0", 0, "internet"): base.astype(np.float32), ("type1", 0, "calls"): (0.2 * base).astype(np.float32)}

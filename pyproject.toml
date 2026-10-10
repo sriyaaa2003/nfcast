@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Do time-series foundation models forecast cloud-native 5G network-function telemetry better than classical baselines, and do the forecasts save energy?"
 requires-python = ">=3.11"
 dependencies = [
-  "numpy", "pandas", "pyarrow", "scipy", "scikit-learn", "statsmodels", "pyyaml", "matplotlib",
+  "numpy", "pandas", "pyarrow", "scipy", "scikit-learn", "pyyaml", "matplotlib",
   "torch", "transformers>=4.57,<5", "peft", "chronos-forecasting", "granite-tsfm",
 ]
 

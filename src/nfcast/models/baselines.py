@@ -1,8 +1,6 @@
 """Classical baselines: naive, seasonal naive, seasonal average, Holt-Winters (ETS)."""
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 
 from ..config import Config
@@ -46,29 +44,45 @@ class SeasonalAverage(Forecaster):
 
 
 class ETS(Forecaster):
-    """Additive Holt-Winters on a downsampled recent history, interpolated back to the minute grid."""
+    """Additive Holt-Winters (level + additive seasonality, no trend), written in numpy.
+
+    The smoothing weights are chosen per history by minimising the one-step squared error over a small grid, evaluated for
+    the whole grid at once. (statsmodels' implementation is blocked by this machine's application-control policy.)"""
     name = "ets"
+    ALPHAS = np.array([0.05, 0.1, 0.2, 0.4, 0.7])
+    GAMMAS = np.array([0.0, 0.05, 0.15, 0.4])
 
     def __init__(self, cfg: Config):
-        self.step = cfg.models.ets_downsample_minutes
+        self.step = cfg.models.ets_downsample_steps
         self.season = cfg.eval.seasonal_period // self.step
         self.history_length = cfg.models.ets_context_days * cfg.eval.seasonal_period
 
+    def _fit_forecast(self, y: np.ndarray, horizon: int) -> np.ndarray:
+        m = self.season
+        a, g = np.meshgrid(self.ALPHAS, self.GAMMAS)
+        a, g = a.ravel(), g.ravel()
+        level = np.full(len(a), y[:m].mean())
+        seas = np.repeat((y[:m] - y[:m].mean())[:, None], len(a), axis=1)        # [m, grid]
+        sse = np.zeros(len(a))
+        for t in range(m, len(y)):
+            s = seas[t % m]
+            err = y[t] - (level + s)
+            sse += err ** 2
+            new_level = level + a * err
+            seas[t % m] = s + g * (1 - a) * err
+            level = new_level
+        best = int(np.argmin(sse))
+        t0 = len(y)
+        return level[best] + np.array([seas[(t0 + h) % m, best] for h in range(horizon)])
+
     def predict(self, histories: np.ndarray, horizon: int, meta: Meta | None = None) -> Forecast:
-        from statsmodels.tsa.holtwinters import ExponentialSmoothing
         n, L = histories.shape
         k = L // self.step
         coarse = histories[:, L - k * self.step:].reshape(n, k, self.step).mean(axis=2)
         steps = int(np.ceil(horizon / self.step)) + 1
-        grid = np.arange(steps) * self.step + (self.step - 1) / 2.0 + 1.0   # centre of each coarse step, in minutes ahead
+        grid = np.arange(steps) * self.step + (self.step - 1) / 2.0 + 1.0
         out = np.empty((n, horizon))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            for i in range(n):
-                try:
-                    fc = ExponentialSmoothing(coarse[i], trend=None, seasonal="add", seasonal_periods=self.season,
-                                              initialization_method="estimated").fit().forecast(steps)
-                except Exception:
-                    fc = np.full(steps, coarse[i, -1])
-                out[i] = np.interp(np.arange(1, horizon + 1), grid, fc)
+        for i in range(n):
+            fc = self._fit_forecast(coarse[i], steps)
+            out[i] = np.interp(np.arange(1, horizon + 1), grid, fc)
         return Forecast(out)

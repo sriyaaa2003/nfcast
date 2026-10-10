@@ -1,63 +1,75 @@
-# nfcast
+# nfcast: do time-series foundation models forecast real cellular traffic better?
 
-Do time-series foundation models forecast cloud-native 5G network-function (NF) telemetry better than classical methods, can they be adapted cheaply, and does a better forecast actually save energy?
+Pretrained time-series foundation models (Chronos-Bolt, Tiny Time Mixer, TimesFM) against classical baselines on **real operator
+traffic**, with calibrated intervals, cheap adaptation, and a capacity-planning replay that asks whether a better forecast actually saves
+anything. There is no simulator and no synthetic telemetry.
 
-`nfcast` answers this on a simulator with known dynamics (no operator data is used or claimed). It simulates one-minute telemetry (traffic, CPU, pod utilisation, memory, power) for UPF, AMF, SMF and CU-UP instances running under a reactive Kubernetes-style autoscaler, then benchmarks forecasters, adapts a foundation model, and closes the loop with an autoscaling experiment.
+**Data.** The [Telecom Italia Big Data Challenge](https://www.nature.com/articles/sdata201555) (Barlacchi et al., *Scientific Data* 2015;
+ODbL): every 10 minutes, SMS, call and internet activity per 235 m grid square of Milan, 1 Nov to 5 Dec 2013 (35 days, 144 steps a day;
+daily files from a public Hugging Face mirror). From the 1,500 busiest squares, four **cell types** are found by clustering the weekly
+activity profile of the first 21 days (weekday peaks at 13:00, 13:30, 14:00 and 21:00); 12 squares are drawn at random from each. The
+benchmark uses 4 cells per type and 3 targets (internet, calls, SMS): **48 series**, trained on 21 days, calibrated on 5, **tested on 9**.
+The other 8 cells per type are never used in the benchmark and serve as "new cells" for adaptation.
 
-## What is in it
+## Benchmark (test period; intervals resample whole series)
 
-- **Simulator** (`sim.py`): bursty heavy-tailed traffic, diurnal and weekend cycles, surge events, registration storms (AMF), memory-leak sawtooth restarts (UPF, SMF), a periodic housekeeping task (CU-UP), reactive HPA with a scale-down stabilisation window, nonlinear power model. The four NF types behave differently on purpose, so cross-NF transfer is a real test.
-- **Models**: naive, seasonal naive, seasonal average, Holt-Winters ETS, global gradient boosting, and the foundation models Chronos-Bolt (tiny, small), Tiny Time Mixer (TTM r2) and TimesFM 2.0 (500M). Every model gets exactly the history it needs and nothing after the forecast origin (tested).
-- **Calibrated intervals**: split conformal for every model (CQR for the models with native quantiles), calibrated on a separate period, so intervals are comparable. Nominal coverage 0.80.
-- **Adaptation**: TTM fine-tuned fully and with LoRA at 1, 5, 20 and 100 percent of a 4000-window budget, three seeds each; transfer to unseen NF types, unseen targets and unseen instances.
-- **Closed loop**: proactive scaling from each forecast versus the reactive autoscaler tuned at several targets, scored on energy and SLA-violation minutes.
-- 28 tests (simulator properties, metric correctness, conformal coverage and its failure under shift, no look-ahead, accounting).
+MASE is the error divided by each series' day-over-day change in training data (lower is better); coverage is of 80% intervals.
 
-## Run it
+| model | 1 hour ahead | 6 hours ahead | coverage at 6 h |
+|---|---|---|---|
+| naive | 0.650 | 1.547 | 0.784 |
+| seasonal naive | 0.915 | 0.915 | 0.859 |
+| Holt-Winters (own numpy implementation) | 0.939 | 1.244 | 0.820 |
+| gradient boosting | 0.581 (0.537 to 0.626) | 0.965 (0.900 to 1.031) | 0.809 |
+| Chronos-Bolt tiny | 0.541 | 0.901 | 0.820 |
+| **Chronos-Bolt small** | **0.518** (0.471 to 0.565) | 0.769 (0.721 to 0.817) | 0.837 |
+| TimesFM 2.0 | 0.543 | 0.856 (0.803 to 0.910) | 0.837 |
+| **Tiny Time Mixer** (zero-shot) | 0.532 | **0.684** (0.641 to 0.732) | 0.833 |
+
+- **Zero-shot foundation models beat the classical baselines at both horizons**, with no training on this data: at 1 hour by 7% to 11%
+  against gradient boosting, and at 6 hours the best, TTM (0.684), is 29% better than gradient boosting and 25% better than seasonal naive.
+  The 1-hour differences among the four foundation models are inside the intervals; at 6 hours TTM and Chronos-Bolt small lead.
+- **Seasonal baselines are hard to beat far ahead** because Milan's daily cycle is strong (seasonal naive 0.915 at both horizons), which
+  is why the 6-hour gaps are large for naive and Holt-Winters.
+- **Intervals are close to calibrated out of the box** (native coverage 0.78 to 0.83 against 0.80); conformal calibration changes little
+  here, partly because calibration and test weeks share a regime, which a real shift would break.
+- *Caveat:* the models' pretraining corpora are not fully public, so overlap with Milan data cannot be ruled out.
+
+## Adaptation (TTM, 6-hour MASE, 3 seeds)
+
+| experiment | zero-shot | LoRA, 1% of budget | LoRA, full budget | full fine-tuning, 1% | full fine-tuning, full budget |
+|---|---|---|---|---|---|
+| pooled (all types and targets) | 0.684 | 0.684 | 0.667 | 0.729 | 0.683 |
+| train on one cell type, test on the others | 0.678 | 0.677 | 0.670 | 0.714 | 0.699 |
+| train on internet only, test on calls and SMS | 0.725 | 0.724 | 0.702 | 0.777 | 0.694 |
+| new cells never seen | 0.619 | 0.619 | 0.607 | 0.654 | 0.621 |
+
+LoRA (6% of the parameters) is stable and gives a small gain only at the full budget (about 0.01 to 0.02 MASE). Full fine-tuning on a small
+budget is **worse than zero-shot**. Adapting does not change the ranking of the models.
+
+## Does a better forecast save capacity? (replay on the real traffic, no power model)
+
+Policies set the capacity of 12 cells every hour and are scored on capacity provisioned and on steps where demand exceeded 90% of capacity.
+The baseline is a reactive rule (capacity covers the last 40 minutes' peak at 60% utilisation: 155 violation steps in all, 145.5 cell-days).
+
+- The same forecasts with a headroom margin trace a frontier: for example TTM with 20% headroom uses **19.9% less capacity** than the
+  baseline at 820 violation steps, TimesFM 18.7% less at 606.
+- The right comparison is the reactive rule tuned hotter, which also trades capacity for violations (at 70% utilisation: 14.3% less capacity,
+  434 violation steps). Forecast policies sit on or slightly beyond that frontier, not far beyond it: at about 1,300 violation steps the
+  tuned reactive rule (109.1 cell-days) and TimesFM or TTM with 10% headroom (107.8 to 109.3) are within 2%.
+- **A perfect forecast saves 25.9% with zero violations**, so the ceiling is large and today's models capture only a small part of it.
+
+![capacity against violations](results/orchestration_frontier.png)
+
+## Run
 
 ```bash
 pip install -e .
-python -m nfcast.cli all        # about 1.5 hours on a CPU (TimesFM needs a ~2 GB download); writes results/
-pytest                          # 28 tests; foundation-model smoke tests are marked slow
+python -m nfcast.cli all     # download (about 5 GB), panel, benchmark, adaptation, replay, report; several hours on a CPU
+pytest                       # 25 tests (foundation-model smoke tests are marked slow)
 ```
 
-Config is in `configs/default.yaml` (seed 11, 21 days, 6 instances per NF).
-
-## Results
-
-Test period, 80 series. Intervals in brackets come from resampling whole series (windows of one series are correlated). MASE is error divided by each series' day-over-day change in training data; lower is better.
-
-| model | MASE 15 min | MASE 60 min | coverage 60 min |
-|---|---|---|---|
-| naive | 0.752 | 0.828 | 0.798 |
-| seasonal naive | 0.982 | 0.974 | 0.803 |
-| ETS | 0.640 | 0.683 | 0.806 |
-| gradient boosting | 0.597 (0.542 to 0.657) | 0.651 (0.594 to 0.709) | 0.793 |
-| Chronos-Bolt tiny | 0.599 | 0.688 | 0.801 |
-| Chronos-Bolt small | 0.606 | 0.695 | 0.800 |
-| TTM, zero-shot | 0.613 | 0.707 | 0.802 |
-| **TimesFM 2.0, zero-shot** | **0.568** (0.516 to 0.617) | **0.649** (0.599 to 0.693) | 0.805 |
-
-Full tables are in [`results/REPORT.md`](results/REPORT.md).
-
-![MASE by NF type](results/bench_by_nf.png)
-
-1. **Zero-shot TimesFM is the best model at 15 minutes and ties gradient boosting at 60.** Its 15-minute interval (0.516 to 0.617) overlaps gradient boosting's (0.542 to 0.657), so the gap is suggestive, not established. The smaller foundation models match the best classical models at 15 minutes and trail slightly at 60; all of them beat naive, seasonal and ETS only at the short horizon. A tuned gradient-boosting model is hard to beat.
-2. **CU-UP is the hardest NF type for every model** (periodic housekeeping spikes). At 60 minutes TimesFM scores 0.753 there, against 0.851 for gradient boosting and 0.89 to 0.92 for Chronos-Bolt and TTM.
-3. **The foundation models' native intervals are already well calibrated** (raw coverage 0.78 to 0.80 against a nominal 0.80), so conformal calibration changes little here. That is partly because the simulator is stationary between calibration and test; this will not hold under real shift.
-4. **Adaptation helps modestly and needs data.** Three seeds, 60-minute MASE, TTM:
-
-![Adaptation curves](results/finetune_curves.png)
-
-   Zero-shot is 0.707 (pooled). Full fine-tuning reaches 0.673 and LoRA 0.671 at the full budget, with LoRA training 6 percent of the parameters (50,688 of 805,280). With 1 percent of the budget full fine-tuning is no better than zero-shot and noisy (cross-NF: 0.739, worse than zero-shot 0.729); LoRA is stable but also gains little at that size. Adaptation transfers to unseen instances (0.710 to 0.674 and 0.678) and unseen targets (0.677 to 0.629 and 0.646); adapting on UPF only gives a smaller gain on the other NF types (0.729 to 0.702 and 0.693). Seed variation is small for LoRA (sd 0.002 or less) and larger for full fine-tuning at small budgets (up to 0.019). Adapted TTM still does not reach zero-shot TimesFM (0.649).
-5. **Better forecasts save little energy.** Provisioning for the forecast peak over the next hour, with a reactive floor, uses 5.5 to 6.1 percent less energy than the deployed autoscaler at 20 or fewer violation minutes (TimesFM 6.0 percent with 9 violation minutes). But the same reactive autoscaler tuned to a hotter target does as well (6.8 percent, 18 violation minutes), and a perfect forecast saves 6.0 percent with zero violations against 3.8 percent for the best zero-violation reactive setting. So the ceiling for forecasting here is about 2 percent of energy.
-
-![Energy against violations](results/orchestration_frontier.png)
-
-## What is not measured
-
-- No real operator or testbed telemetry. Everything describes this generator; model rankings may differ on real traffic.
-- Calibration is evaluated without distribution shift between calibration and test.
-- Fine-tuning is only done for TTM, not TimesFM or Chronos, and no model had its hyperparameters tuned beyond defaults (the gradient-boosting baseline is trained on this simulator's training period).
-- Energy is a modelled power curve, not measured; the closed loop replays recorded demand and does not model how scaling changes demand or pod start-up delays.
-- Not tested: a real Kubernetes cluster, other NF types, targets beyond the five here, forecast horizons beyond 60 minutes.
+Settings are in `configs/default.yaml`. Details of the evaluation: models see exactly the history they need and nothing after the forecast
+origin (tested); split-conformal intervals (CQR for models with native quantiles) are calibrated on a separate period; the Holt-Winters
+baseline is reimplemented in numpy because statsmodels is blocked on this machine. Limits: one city, five weeks, 10-minute resolution,
+cell-level traffic rather than network-function telemetry, and the capacity replay compares policy rules, not a deployed system.

@@ -32,7 +32,7 @@ def bench_tables(bench: pd.DataFrame, cfg: Config) -> dict[str, pd.DataFrame]:
     nb = cfg.eval.n_boot
     out = {m: ci_table(bench, ["model", "horizon"], m, nb) for m in ("mase", "interval_score", "coverage")}
     top = bench[bench.horizon == max(cfg.eval.horizons)]
-    out["by_nf"] = ci_table(top, ["model", "nf"], "mase", nb)
+    out["by_type"] = ci_table(top, ["model", "nf"], "mase", nb)
     out["by_target"] = ci_table(top, ["model", "target"], "mase", nb)
     native = bench.dropna(subset=["raw_coverage"])
     if len(native):
@@ -59,9 +59,9 @@ def plot_bench(bench: pd.DataFrame, cfg: Config, path: str) -> None:
     d = bench[bench.horizon == h].groupby(["model", "nf"]).mase.mean().unstack()
     d = d.loc[[m for m in ORDER if m in d.index]]
     ax = d.plot.bar(figsize=(9, 4), width=0.8)
-    ax.set_ylabel(f"MASE, {h}-min (lower is better)", fontsize=9)
+    ax.set_ylabel(f"MASE, {h * 10}-min ahead (lower is better)", fontsize=9)
     ax.set_xlabel("")
-    ax.legend(title="nf", loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4)
+    ax.legend(title="cell type", loc="upper center", bbox_to_anchor=(0.5, -0.28), ncol=4)
     plt.xticks(rotation=30, ha="right")
     plt.tight_layout()
     plt.savefig(path, dpi=140)
@@ -84,7 +84,7 @@ def plot_finetune(ft: pd.DataFrame, cfg: Config, path: str) -> None:
         ax.set_xscale("log")
         ax.set_title(e)
         ax.set_xlabel("share of training budget")
-    axes[0].set_ylabel(f"MASE, {h}-min")
+    axes[0].set_ylabel(f"MASE, {h * 10}-min ahead")
     axes[0].legend()
     plt.tight_layout()
     plt.savefig(path, dpi=140)
@@ -96,11 +96,11 @@ def plot_orchestration(summary: pd.DataFrame, path: str) -> None:
     s = summary.copy()
     s["family"] = np.where(s.policy.str.startswith("reactive"), "reactive", s.policy)
     for fam, g in s.groupby("family"):
-        g = g.sort_values("violation_min")
-        ax.plot(g.violation_min, g.energy_kwh, marker="o", label=fam, lw=2.5 if fam in ("reactive", "oracle") else 1.2)
+        g = g.sort_values("violation_steps")
+        ax.plot(g.violation_steps, g.capacity_cell_days, marker="o", label=fam, lw=2.5 if fam in ("reactive", "oracle") else 1.2)
     ax.set_xscale("symlog", linthresh=10)
-    ax.set_xlabel("violation minutes (total, symlog)")
-    ax.set_ylabel("energy (kWh, total)")
+    ax.set_xlabel("violation steps (total over cells, symlog)")
+    ax.set_ylabel("capacity provisioned (cell-days, total)")
     ax.legend(fontsize=8)
     plt.tight_layout()
     plt.savefig(path, dpi=140)
@@ -112,13 +112,13 @@ def build(cfg: Config) -> str:
     parts = []
     bench = pd.read_csv(os.path.join(rd, "bench_windows.csv"))
     t = bench_tables(bench, cfg)
-    plot_bench(bench, cfg, os.path.join(rd, "bench_by_nf.png"))
+    plot_bench(bench, cfg, os.path.join(rd, "bench_by_type.png"))
     for h in cfg.eval.horizons:
         a = fmt_ci(t["mase"][t["mase"].horizon == h], "mase", ["model"]).set_index("model")
         b = t["interval_score"][t["interval_score"].horizon == h].set_index("model").interval_score.map("{:.2f}".format)
         c = t["coverage"][t["coverage"].horizon == h].set_index("model").coverage.map("{:.3f}".format)
         tab = pd.concat([a, b, c], axis=1).loc[[m for m in ORDER if m in a.index]].reset_index()
-        parts.append(f"### Benchmark, {h}-minute horizon\n\n" + md(tab))
+        parts.append(f"### Benchmark, {h * 10}-minute horizon\n\n" + md(tab))
     if "native_calibration" in t:
         parts.append("### Native vs conformalised coverage (nominal 0.80)\n\n" + md(t["native_calibration"]))
     ft_path = os.path.join(rd, "finetune_windows.csv")
@@ -130,14 +130,14 @@ def build(cfg: Config) -> str:
         per.to_csv(os.path.join(rd, "finetune_summary.csv"), index=False)
         g = per.groupby(["experiment", "method", "fraction"]).mase.agg(["mean", "std"]).reset_index()
         g["mase (mean, sd over seeds)"] = [f"{m:.3f} ({0 if np.isnan(sd) else sd:.3f})" for m, sd in zip(g["mean"], g["std"])]
-        parts.append(f"### Adaptation, {h}-minute MASE\n\n" + md(g[["experiment", "method", "fraction", "mase (mean, sd over seeds)"]]))
+        parts.append(f"### Adaptation, {h * 10}-minute MASE\n\n" + md(g[["experiment", "method", "fraction", "mase (mean, sd over seeds)"]]))
     op = os.path.join(rd, "orchestration.csv")
     if os.path.exists(op):
         s = orchestrate.summarise(pd.read_csv(op))
         plot_orchestration(s, os.path.join(rd, "orchestration_frontier.png"))
-        for budget in (0, 20):
-            b = orchestrate.best_at_budget(s, budget)[["family", "headroom", "energy_kwh", "violation_min", "energy_saving_pct"]]
-            parts.append(f"### Energy at no more than {budget} violation minutes (all instances)\n\n" + md(b, "{:.2f}"))
+        for budget in (200, 1000):
+            b = orchestrate.best_at_budget(s, budget)[["family", "headroom", "capacity_cell_days", "violation_steps", "capacity_saving_pct"]]
+            parts.append(f"### Capacity at no more than {budget} violation steps (all cells)\n\n" + md(b, "{:.2f}"))
     text = "\n\n".join(parts) + "\n"
     with open(os.path.join(rd, "REPORT.md"), "w", encoding="utf-8", newline="\n") as f:
         f.write(text)

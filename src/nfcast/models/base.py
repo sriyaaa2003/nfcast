@@ -9,7 +9,7 @@ import numpy as np
 @dataclass
 class Meta:
     """Which series each history belongs to and where its forecast origin is (used by global models)."""
-    origins: np.ndarray            # [N] minute index of the forecast origin
+    origins: np.ndarray            # [N] step index of the forecast origin
     nf: list[str]
     target: list[str]
 
@@ -21,7 +21,7 @@ class Forecast:
 
 
 class Forecaster:
-    """A model that forecasts the next `horizon` one-minute steps from the history before the forecast origin.
+    """A model that forecasts the next `horizon` steps from the history before the forecast origin.
 
     `history_length` is how much past it needs; the harness hands it exactly the last `history_length` points, so a
     model can never see the future by construction (the harness, not the model, enforces that)."""
